@@ -4,6 +4,13 @@ meta:
 env:
   - PATH=$HOME/bin:$PATH
 targets:
+  test:
+    meta:
+      doc: "Test command"
+      type: cmd
+    exec:
+      - "echo {{meta.version}}"
+      - cat /etc/resolv.conf
   docker:
     meta:
       doc: "Docs for docker command"
@@ -17,7 +24,7 @@ targets:
           - POSTGRES_PORT=8765
         exec:
           - "echo {{meta.version}}"
-          - docker-compose build
+          - cat /etc/hosts
   docker2:
     meta:
       doc: "Docs for docker command"

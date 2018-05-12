@@ -7,3 +7,4 @@ authors = ["Tim Eggert <tim@elbart.com>"]
 serde = "1.0"
 serde_derive = "1.0"
 serde_yaml = "0.7"
+clap = "2.31.2"
