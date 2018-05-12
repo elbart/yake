@@ -86,7 +86,7 @@ impl Yake {
             targets.insert(target_name.to_string(), target.clone());
             if target.targets.is_some() {
                 let prefix = target_name.clone();
-                targets.extend(target.get_sub_targets_map(Some(prefix)));
+                targets.extend(target.get_sub_targets(Some(prefix)));
             }
         }
 
@@ -139,7 +139,7 @@ impl Yake {
 }
 
 impl YakeTarget {
-    pub fn get_sub_targets_map(&self, prefix: Option<String>) -> HashMap<String, YakeTarget> {
+    pub fn get_sub_targets(&self, prefix: Option<String>) -> HashMap<String, YakeTarget> {
         let mut targets = HashMap::new();
         match self.targets {
             Some(ref x) => for (target_name, target) in x {
@@ -154,7 +154,7 @@ impl YakeTarget {
                         Some(ref x) => Some(format!("{}.{}", x, target_name)),
                         None => None,
                     };
-                    targets.extend(target.get_sub_targets_map(p))
+                    targets.extend(target.get_sub_targets(p))
                 }
             },
             None => ()
