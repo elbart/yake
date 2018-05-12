@@ -1,0 +1,52 @@
+meta:
+  doc: "Some docs"
+  version: 1.0.0
+env:
+  - PATH=$HOME/bin:$PATH
+targets:
+  docker:
+    meta:
+      doc: "Docs for docker command"
+      type: group
+    targets:
+      postgres:
+        meta:
+          doc: "Docs for docker command"
+          type: cmd
+        env:
+          - POSTGRES_PORT=8765
+        exec:
+          - "echo {{meta.version}}"
+          - docker-compose build
+  docker2:
+    meta:
+      doc: "Docs for docker command"
+      type: cmd
+  docker3:
+    meta:
+      doc: "Docs for docker command"
+      type: group
+    targets:
+      mysql:
+        meta:
+          doc: "Docs for docker mysql command"
+          type: cmd
+        env:
+          - MYSQL_PORT=8765
+        exec:
+          - "echo {{meta.version}}"
+          - docker-compose build
+      mysql2:
+        meta:
+          doc: "Docs for docker mysql command"
+          type: group
+        targets:
+          mysqlsub:
+            meta:
+              doc: "Docs for docker mysql command"
+              type: cmd
+            env:
+              - MYSQL_PORT=8765
+            exec:
+              - "echo {{meta.version}}"
+              - docker-compose build
