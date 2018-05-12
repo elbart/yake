@@ -1,0 +1,35 @@
+Yake
+====
+
+``make`` with yaml files.
+
+Use yaml files to specify Makefile-like targets and execute these
+via CLI.
+
+Features (TODO)
+===============
+- auto completion support for bash, zsh, ...
+- target dependencies
+- recursive inclusion of yaml files
+- ...
+
+Usage
+=====
+::
+
+    Yake 0.1
+    Tim Eggert <tim@elbart.com>
+    Make with yaml files
+
+    USAGE:
+        yake [OPTIONS] <TARGET>
+
+    FLAGS:
+        -h, --help       Prints help information
+        -V, --version    Prints version information
+
+    OPTIONS:
+        -p, --parameter <param>...    Parameters for the yake processing
+
+    ARGS:
+        <TARGET>    Target to invoke
