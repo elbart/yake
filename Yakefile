@@ -4,13 +4,12 @@ meta:
 env:
   - PATH=$HOME/bin:$PATH
 targets:
-  test:
+  base:
     meta:
       doc: "Test command"
       type: cmd
     exec:
-      - "echo {{meta.version}}"
-      - cat /etc/resolv.conf
+      - echo "i'm base"
   docker:
     meta:
       doc: "Docs for docker command"
@@ -20,6 +19,10 @@ targets:
         meta:
           doc: "Docs for docker command"
           type: cmd
+          depends:
+            - base
+            - docker2
+            - docker3.mysql2.mysqlsub
         env:
           - POSTGRES_PORT=8765
         exec:
@@ -29,6 +32,8 @@ targets:
     meta:
       doc: "Docs for docker command"
       type: cmd
+    exec:
+      - echo "docker 2"
   docker3:
     meta:
       doc: "Docs for docker command"
@@ -55,5 +60,4 @@ targets:
             env:
               - MYSQL_PORT=8765
             exec:
-              - "echo {{meta.version}}"
-              - docker-compose build
+              - echo "I am docker3.mysql2.mysqlsub"

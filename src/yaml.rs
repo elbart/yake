@@ -11,5 +11,5 @@ pub fn load_yml_from_file(filename: &str) -> Yake {
 
     let yake: Yake = serde_yaml::from_str(&contents).expect("Unable to parse");
 
-    yake.flatten()
+    yake.fabricate()
 }

@@ -25,5 +25,6 @@ fn main() {
         _ => (),
     };
 
-    yake.execute(&yake_args.target);
+    yake.execute(&yake_args.target)
+        .expect(format!("Execution of target: {} failed.", &yake_args.target).as_str());
 }

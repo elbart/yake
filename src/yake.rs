@@ -6,12 +6,14 @@ use std::process::{Command, Stdio};
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct Yake {
     pub meta: YakeMeta,
-    pub env: Vec<String>,
+    pub env: Option<Vec<String>>,
     pub targets: HashMap<String, YakeTarget>,
     #[serde(skip)]
-    flattened: bool,
+    fabricated: bool,
     #[serde(skip)]
     all_targets: HashMap<String, YakeTarget>,
+    #[serde(skip)]
+    dependencies: HashMap<String, Vec<YakeTarget>>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
@@ -25,6 +27,7 @@ pub struct YakeTargetMeta {
     pub doc: String,
     #[serde(rename = "type")]
     pub target_type: YakeTargetType,
+    pub depends: Option<Vec<String>>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
@@ -101,14 +104,44 @@ impl Yake {
         }
     }
 
-    pub fn flatten(&self) -> Yake {
-        if self.flattened {
+    fn get_target_by_name(&self, target_name: &str) -> Option<YakeTarget> {
+        self.get_all_targets().get(&target_name.to_string()).cloned()
+    }
+
+    fn get_all_dependencies(&self) -> HashMap<String, Vec<YakeTarget>> {
+        let mut ret: HashMap<String, Vec<YakeTarget>> = HashMap::new();
+        for (target_name, target) in self.get_all_targets() {
+            ret.insert(target_name.clone(), Vec::new());
+            for dependency_name in target.meta.depends.unwrap_or(vec![]).iter() {
+                let dep = self.get_target_by_name(dependency_name);
+                let dep_target = dep.expect(
+                    format!("Warning: Unknown dependency: {} in target: {}.",
+                            dependency_name,
+                            target_name).as_str()
+                );
+                ret.get_mut(&target_name).unwrap().push(dep_target);
+            }
+        }
+
+        ret
+    }
+
+    fn get_dependency_by_name(&self, target_name: &str) -> Vec<YakeTarget> {
+        self.dependencies.get(target_name).unwrap().clone()
+    }
+
+    pub fn fabricate(&self) -> Yake {
+        if self.fabricated {
             return self.clone();
         }
 
-        let mut y = self.clone();
-        y.all_targets = self.get_all_targets().clone();
-        y.flattened = true;
+        let y = Yake {
+            all_targets: self.get_all_targets(),
+            dependencies: self.get_all_dependencies(),
+            fabricated: true,
+            ..self.clone()
+        };
+
         return y;
     }
 
@@ -118,19 +151,30 @@ impl Yake {
         }
 
         let target = self.all_targets.get(target_name).unwrap();
-        match target.exec {
-            Some(ref x) => {
-                for cmd in x {
-                    println!("-- {}", cmd);
-                    Command::new("bash")
-                        .arg("-c")
-                        .arg(cmd)
-                        .stdout(Stdio::inherit())
-                        .stderr(Stdio::inherit())
-                        .output()
-                        .expect(&format!("failed to execute command \"{}\"", cmd));
-                }
+        let dependencies = self.get_dependency_by_name(target_name);
+
+        let run_target = |commands: Vec<String>| {
+            for command in commands {
+                println!("-- {}", command);
+                Command::new("bash")
+                    .arg("-c")
+                    .arg(command.clone())
+                    .stdout(Stdio::inherit())
+                    .stderr(Stdio::inherit())
+                    .output()
+                    .expect(&format!("failed to execute command \"{}\"", command));
             }
+        };
+
+        for dep in dependencies {
+            match dep.exec {
+                Some(commands) => run_target(commands.to_vec()),
+                _ => ()
+            }
+        }
+
+        match target.exec {
+            Some(ref commands) => run_target(commands.to_vec()),
             _ => ()
         }
 
@@ -160,5 +204,64 @@ impl YakeTarget {
             None => ()
         }
         targets
+    }
+}
+
+#[allow(dead_code)]
+fn get_all_targets<'a>(yake: &'a Yake) -> Vec<&'a YakeTarget> {
+    let mut ret = Vec::new();
+
+    ret.push(yake.targets.get("test").unwrap());
+
+    ret
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ref() {
+        let targets: HashMap<String, YakeTarget> =
+            [("base".to_string(),
+              YakeTarget {
+                  targets: None,
+                  meta: YakeTargetMeta {
+                      doc: "Huhu".to_string(),
+                      target_type: YakeTargetType::Cmd,
+                      depends: None,
+                  },
+                  env: None,
+                  exec: None,
+              }),
+                ("test".to_string(),
+                 YakeTarget {
+                     targets: None,
+                     meta: YakeTargetMeta {
+                         doc: "Huhu".to_string(),
+                         target_type: YakeTargetType::Cmd,
+                         depends: Some(vec!["base".to_string()]),
+                     },
+                     env: None,
+                     exec: None,
+                 })].iter().cloned().collect();
+
+        let mut dependencies = HashMap::new();
+        dependencies.insert("test".to_string(), vec![targets.get(&"base".to_string()).unwrap().clone()]);
+
+        let yake = Yake {
+            targets,
+            dependencies,
+            env: None,
+            meta: YakeMeta {
+                doc: "Bla".to_string(),
+                version: "1.0.0".to_string(),
+            },
+            fabricated: false,
+            all_targets: HashMap::new(),
+
+        };
+
+        let _targets = get_all_targets(&yake);
     }
 }
