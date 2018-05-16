@@ -3,49 +3,79 @@ use serde::de::Error;
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
 
+/// Represents the full yaml structure.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct Yake {
+    /// Meta data
     pub meta: YakeMeta,
+    /// Environment variables
     pub env: Option<Vec<String>>,
+    /// Main targets
     pub targets: HashMap<String, YakeTarget>,
+    /// Flag indicates, whether the object was fabricated already.
+    /// Not deserialized from yaml.
     #[serde(skip)]
     fabricated: bool,
+    /// Normalized, flattened map of all targets.
+    /// Not deserialized from yaml.
     #[serde(skip)]
     all_targets: HashMap<String, YakeTarget>,
+    /// Normalized, flattened map of all dependencies.
+    /// Not deserialized from yaml.
     #[serde(skip)]
     dependencies: HashMap<String, Vec<YakeTarget>>,
 }
 
+/// Contains meta data for the yake object.
+///
+/// All fields (doc, version) are required. Parsing
+/// fails in case values are missing in the yaml data.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct YakeMeta {
+    /// Documentation information
     pub doc: String,
+    /// Version information
     pub version: String,
 }
 
+/// Contains meta data for a yake target.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct YakeTargetMeta {
+    /// Documentation information
     pub doc: String,
+    /// Type of the target, deserialized from `target`
     #[serde(rename = "type")]
     pub target_type: YakeTargetType,
+    /// List of dependent targets
     pub depends: Option<Vec<String>>,
 }
 
+/// Defines a yake target. Can have sub-targets.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct YakeTarget {
+    /// Target meta data
     pub meta: YakeTargetMeta,
+    /// Subordinate targets
     pub targets: Option<HashMap<String, YakeTarget>>,
+    /// List of environment variables
     pub env: Option<Vec<String>>,
+    /// List of commands to execute
+    /// Will only be executed for `TargetType::Cmd`
     pub exec: Option<Vec<String>>,
 }
 
-/// Custom deserialization via:
-/// https://github.com/serde-rs/serde/issues/1019#issuecomment-322966402
+// Custom deserialization via:
+// https://github.com/serde-rs/serde/issues/1019#issuecomment-322966402
+/// Defines the different target types.
 #[derive(Debug, PartialEq, Clone)]
 pub enum YakeTargetType {
+    /// A group has no own commands, just sub-targets.
     Group,
+    /// A cmd has no sub-targets, just commands.
     Cmd,
 }
 
+/// Implements custom serde serializer for the YakeTargetType
 impl Serialize for YakeTargetType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer
@@ -57,6 +87,7 @@ impl Serialize for YakeTargetType {
     }
 }
 
+/// Implements custom serde deserializer for the YakeTargetType
 impl<'de> Deserialize<'de> for YakeTargetType {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer<'de>
@@ -70,8 +101,11 @@ impl<'de> Deserialize<'de> for YakeTargetType {
     }
 }
 
+/// Implementation for the Yake object
 impl Yake {
-    pub fn get_targets(&self) -> Vec<String> {
+
+    /// Get's a list of all existing target names
+    pub fn get_target_names(&self) -> Vec<String> {
         let mut ret = Vec::new();
         for (target_name, target) in &self.all_targets {
             if target.meta.target_type == YakeTargetType::Cmd {
@@ -82,6 +116,8 @@ impl Yake {
         ret
     }
 
+    /// Gets a flattened, normalized map of all target names and it's respective yake
+    /// target.
     fn get_all_targets(&self) -> HashMap<String, YakeTarget> {
         let mut targets = HashMap::new();
 
@@ -96,18 +132,21 @@ impl Yake {
         targets
     }
 
-    pub fn has_target(&self, target_name: &str) -> Result<(), Vec<String>> {
-        if self.get_targets().contains(&target_name.to_string()) {
+    /// Checks, whether a specific target name exists.
+    pub fn has_target_name(&self, target_name: &str) -> Result<(), Vec<String>> {
+        if self.get_target_names().contains(&target_name.to_string()) {
             Ok(())
         } else {
-            Err(self.get_targets().clone())
+            Err(self.get_target_names().clone())
         }
     }
 
+    /// Gets a YakeTarget by name.
     fn get_target_by_name(&self, target_name: &str) -> Option<YakeTarget> {
         self.get_all_targets().get(&target_name.to_string()).cloned()
     }
 
+    /// Gets a normalized, flattened map of all dependencies for each target name.
     fn get_all_dependencies(&self) -> HashMap<String, Vec<YakeTarget>> {
         let mut ret: HashMap<String, Vec<YakeTarget>> = HashMap::new();
         for (target_name, target) in self.get_all_targets() {
@@ -126,10 +165,14 @@ impl Yake {
         ret
     }
 
-    fn get_dependency_by_name(&self, target_name: &str) -> Vec<YakeTarget> {
+    /// Gets a list of dependencies for a target name.
+    fn get_dependencies_by_name(&self, target_name: &str) -> Vec<YakeTarget> {
         self.dependencies.get(target_name).unwrap().clone()
     }
 
+    /// Creates some kind of cached / fabricated object
+    /// This is possibly not useful at all.
+    /// TODO: check whether it's needed or not.
     pub fn fabricate(&self) -> Yake {
         if self.fabricated {
             return self.clone();
@@ -145,13 +188,14 @@ impl Yake {
         return y;
     }
 
+    /// Execute a target and it's dependencies.
     pub fn execute(&self, target_name: &str) -> Result<String, String> {
-        if self.has_target(target_name).is_err() {
+        if self.has_target_name(target_name).is_err() {
             return Err(format!("Unknown target: {}", target_name).to_string());
         }
 
-        let target = self.all_targets.get(target_name).unwrap();
-        let dependencies = self.get_dependency_by_name(target_name);
+        let target = self.get_target_by_name(target_name).unwrap();
+        let dependencies = self.get_dependencies_by_name(target_name);
 
         let run_target = |target: &YakeTarget| {
             match target.exec {
@@ -177,13 +221,16 @@ impl Yake {
         }
 
         // then run the actual target
-        run_target(target);
+        run_target(&target);
 
         Ok("All cool".to_string())
     }
 }
 
+/// Implementation for a YakeTarget.
 impl YakeTarget {
+
+    /// Get a map of subordinate targets.
     pub fn get_sub_targets(&self, prefix: Option<String>) -> HashMap<String, YakeTarget> {
         let mut targets = HashMap::new();
         match self.targets {

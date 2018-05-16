@@ -1,3 +1,7 @@
+//! Yake
+//! ``make`` with yaml files.
+//!
+//! Use yaml files to specify Makefile-like targets and execute these via CLI.
 extern crate clap;
 extern crate serde;
 #[macro_use]
@@ -9,14 +13,14 @@ use std::process::exit;
 use yaml::load_yml_from_file;
 
 mod yaml;
-mod yake;
+pub mod yake;
 mod args;
 
 fn main() {
     let yake_args = create_cli_app();
 
     let yake = load_yml_from_file("Yakefile");
-    match yake.has_target(&yake_args.target) {
+    match yake.has_target_name(&yake_args.target) {
         Err(x) => {
             eprintln!("Unknown target: '{}' Available targets are: {:?}",
                       yake_args.target, x);
