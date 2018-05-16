@@ -153,30 +153,31 @@ impl Yake {
         let target = self.all_targets.get(target_name).unwrap();
         let dependencies = self.get_dependency_by_name(target_name);
 
-        let run_target = |commands: Vec<String>| {
-            for command in commands {
-                println!("-- {}", command);
-                Command::new("bash")
-                    .arg("-c")
-                    .arg(command.clone())
-                    .stdout(Stdio::inherit())
-                    .stderr(Stdio::inherit())
-                    .output()
-                    .expect(&format!("failed to execute command \"{}\"", command));
+        let run_target = |target: &YakeTarget| {
+            match target.exec {
+                Some(ref commands) => {
+                    for command in commands {
+                        println!("-- {}", command);
+                        Command::new("bash")
+                            .arg("-c")
+                            .arg(command.clone())
+                            .stdout(Stdio::inherit())
+                            .stderr(Stdio::inherit())
+                            .output()
+                            .expect(&format!("failed to execute command \"{}\"", command));
+                    }
+                },
+                _ => ()
             }
         };
 
+        // run dependencies first
         for dep in dependencies {
-            match dep.exec {
-                Some(commands) => run_target(commands.to_vec()),
-                _ => ()
-            }
+            run_target(&dep);
         }
 
-        match target.exec {
-            Some(ref commands) => run_target(commands.to_vec()),
-            _ => ()
-        }
+        // then run the actual target
+        run_target(target);
 
         Ok("All cool".to_string())
     }
